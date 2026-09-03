@@ -1,0 +1,29 @@
+# --- Phase 0: core / Alpaca ---
+alpaca-py>=0.33.0
+python-dotenv>=1.0.1
+websockets>=13.0
+httpx>=0.27.0
+tenacity>=9.0.0
+
+# --- Phase 1A: catalyst watcher ---
+requests>=2.32.0
+apscheduler>=3.10.4
+pydantic>=2.8.0
+
+# --- Phase 2: scientific agent ---
+smolagents>=1.3.0
+openai>=1.40.0   # OpenAI-compatible client — used for both OpenRouter and Featherless
+
+# --- Phase 3: sonification ---
+numpy>=1.26.4
+librosa>=0.10.2
+soundfile>=0.12.1
+scipy>=1.13.1
+
+# --- Phase 4: neural perception ---
+torch>=2.3.0
+torchaudio>=2.3.0
+scikit-learn>=1.5.0
+
+# --- shared ---
+rich>=13.7.1
