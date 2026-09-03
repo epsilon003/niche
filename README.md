@@ -1,9 +1,9 @@
-# biosignal-trader — Phases 0–5
+# biosignal-trader — Phases 0–6
 
 Implements setup, both tracks (scientific: catalyst watcher → scientific
-agent; market: tick engine → sonification → neural perception), and the
-cross-intelligence rule engine where they merge. Phases 6–7 (options
-execution, UI) are not built yet.
+agent; market: tick engine → sonification → neural perception), the
+cross-intelligence rule engine where they merge, and options execution.
+Phase 7 (UI + demo) is not built yet.
 
 ```
 Phase 0 — Setup
@@ -14,6 +14,7 @@ Phase 0 — Setup
         └── Phase 4 — Neural perception
                                     \
                                      Phase 5 — Cross-intelligence agent (rule engine, no LLM)
+                                     └── Phase 6 — Options strategy + execution
 ```
 
 ## 0. Setup
@@ -144,6 +145,71 @@ realistic fixture files. Both produced the expected decisions.
 Phase 6 (options strategy + execution) filters this stream to `decision ==
 TRADE`, picks a call/put spread per `bias`, checks IV rank and the max-loss
 gate, and executes against Alpaca's paper options API.
+
+## 6 — Options strategy + execution
+
+```bash
+python -m options_execution.execution --once
+```
+
+Filters `data/cross_intel_decisions.jsonl` to `decision == TRADE`, and for
+each new one:
+
+1. **Build a debit spread** (`options_execution/strategy.py`) — `CALL` bias
+   → bull call debit spread, `PUT` bias → bear put debit spread. Long leg
+   targets 0.60 delta, short leg 0.30 delta, nearest expiration between 5
+   and 45 days out. Debit spreads cap risk at the premium paid, which
+   matches a directional bet on a binary, one-shot catalyst — no naked
+   theta/IV-crush exposure, no undefined-risk credit spread on the wrong
+   side of an event.
+2. **IV rank gate** (`options_execution/iv_rank.py`) — rejects if the
+   spread's average implied volatility ranks above `IV_RANK_MAX` (default
+   90) against that ticker's own trailing history, i.e. refuses to buy
+   premium that's already priced for an extreme move. History is persisted
+   per-ticker to `data/iv_history/<ticker>.jsonl`, one sample per day; a
+   fresh install has no history for ~20 days, and by default
+   (`IV_RANK_REQUIRE_HISTORY=false`) that doesn't block trading — only a
+   *confirmed* high rank does.
+3. **Max-loss gate** (`options_execution/risk_gate.py`) — sizes the
+   position so the spread's total net debit never exceeds `MAX_LOSS_PCT`
+   (default 2%) of current account equity, per the diagram's "max loss 2%
+   gate." Rounds down to whole contracts; rejects outright if even one
+   contract would breach the cap.
+4. **Submit or dry-run** (`options_execution/alpaca_options_client.py`) —
+   a multi-leg (`order_class=mleg`) limit order at the net debit price
+   against Alpaca's paper trading API. `EXECUTION_DRY_RUN=true` by default
+   — gates still run and get logged, but no order is actually submitted
+   until you explicitly set it to `false`.
+
+Every outcome — executed, dry-run, or rejected, and rejected *why*
+(spread couldn't be constructed, IV rank too high, max-loss gate, chain
+fetch failed, order submission failed) — is logged to
+`data/trade_log.jsonl`, per the diagram's "log every trade and rejection."
+
+Tested without live Alpaca network access (not available in this sandbox)
+by exercising each piece directly: risk-gate sizing math against several
+equity/debit combinations including the exact-cap and cap-exceeded cases;
+IV rank's insufficient-history and sufficient-history paths with backfilled
+synthetic data (a low IV correctly ranked near 0, a high IV near 90); spread
+construction picking the correct expiration window and delta-targeted
+strikes from a synthetic multi-expiration chain, and correctly refusing a
+chain with no valid expiration; and the full `process_decision` orchestration
+with the Alpaca calls mocked out, covering the dry-run success path (exact
+contract count and total debit verified), the IV-rank rejection path, and
+the max-loss rejection path. The one thing not exercised is the real
+network calls themselves (contract chain retrieval, snapshot quotes/greeks,
+order submission) — same caveat as Phase 0/1B/2, run against your real
+paper account before trusting it live.
+
+## What Phase 7 will need from here
+
+- `data/trade_log.jsonl` — every executed/dry-run/rejected trade, for a live
+  agent log and P&L view.
+- `data/anomaly_scores.jsonl`, `data/cross_intel_decisions.jsonl` — feed the
+  live spectrogram/decision panels.
+
+Phase 7 (UI + demo) reads these logs for a live agent log, Alpaca P&L, and
+a historical replay mode.
 
 ## Honesty notes / known limitations
 
