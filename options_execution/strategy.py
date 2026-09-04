@@ -23,6 +23,7 @@ Strikes are delta-targeted rather than dollar-targeted, since delta is a
 much better analog for "moneyness" across tickers with very different
 share prices.
 """
+
 from __future__ import annotations
 
 from datetime import date, datetime
@@ -32,7 +33,9 @@ from .models import DebitSpread, OptionContract, OptionType, SpreadLeg
 MIN_DAYS_TO_EXPIRY = 5
 MAX_DAYS_TO_EXPIRY = 45
 
-LONG_LEG_TARGET_DELTA = 0.60   # near-the-money — high probability of being ITM if the view is right
+LONG_LEG_TARGET_DELTA = (
+    0.60  # near-the-money — high probability of being ITM if the view is right
+)
 SHORT_LEG_TARGET_DELTA = 0.30  # further OTM — caps upside but funds the spread
 
 
@@ -43,7 +46,11 @@ class SpreadSelectionError(Exception):
 def pick_expiration(contracts: list[OptionContract], as_of: date | None = None) -> date:
     as_of = as_of or datetime.now().date()
     candidates = sorted({c.expiration for c in contracts})
-    in_window = [d for d in candidates if MIN_DAYS_TO_EXPIRY <= (d - as_of).days <= MAX_DAYS_TO_EXPIRY]
+    in_window = [
+        d
+        for d in candidates
+        if MIN_DAYS_TO_EXPIRY <= (d - as_of).days <= MAX_DAYS_TO_EXPIRY
+    ]
     if not in_window:
         raise SpreadSelectionError(
             f"no expiration between {MIN_DAYS_TO_EXPIRY} and {MAX_DAYS_TO_EXPIRY} days out "
@@ -52,7 +59,9 @@ def pick_expiration(contracts: list[OptionContract], as_of: date | None = None) 
     return in_window[0]  # nearest expiration inside the acceptable window
 
 
-def _closest_by_delta(contracts: list[OptionContract], target_delta: float) -> OptionContract:
+def _closest_by_delta(
+    contracts: list[OptionContract], target_delta: float
+) -> OptionContract:
     with_delta = [c for c in contracts if c.delta is not None]
     if not with_delta:
         raise SpreadSelectionError("no contracts in chain have delta/greeks data")
@@ -66,9 +75,15 @@ def build_debit_spread(
     as_of: date | None = None,
 ) -> DebitSpread:
     expiration = pick_expiration(contracts, as_of)
-    same_expiry = [c for c in contracts if c.expiration == expiration and c.option_type == option_type]
+    same_expiry = [
+        c
+        for c in contracts
+        if c.expiration == expiration and c.option_type == option_type
+    ]
     if len(same_expiry) < 2:
-        raise SpreadSelectionError(f"fewer than 2 {option_type.value} contracts at {expiration} for {ticker}")
+        raise SpreadSelectionError(
+            f"fewer than 2 {option_type.value} contracts at {expiration} for {ticker}"
+        )
 
     long_contract = _closest_by_delta(same_expiry, LONG_LEG_TARGET_DELTA)
 
@@ -85,7 +100,9 @@ def build_debit_spread(
 
     long_mid, short_mid = long_contract.mid, short_contract.mid
     if long_mid is None or short_mid is None:
-        raise SpreadSelectionError("missing bid/ask/last on one or both legs — can't price the spread")
+        raise SpreadSelectionError(
+            "missing bid/ask/last on one or both legs — can't price the spread"
+        )
 
     net_debit = long_mid - short_mid
     if net_debit <= 0:

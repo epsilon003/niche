@@ -12,15 +12,16 @@ Run once:
 Run on a schedule (default: every 15 min):
     python -m catalyst_watcher.watcher
 """
+
 from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 
 from config import get_logger, settings
+
 from . import clinicaltrials_client, fda_calendar
 from .models import CatalystEvent
 
@@ -51,9 +52,9 @@ def _save_seen(seen: set[str]) -> None:
 
 
 def _append_events(events: list[CatalystEvent]):
-    with open(settings.events_file, "a", encoding="utf-8") as f:
-        for ev in events:
-            f.write(ev.model_dump_json() + "\n")
+    # FIX: Use EVENTS_LOG_PATH instead of settings.events_file to match what the agent reads
+    with open(EVENTS_LOG_PATH, "a", encoding="utf-8") as f:
+        f.writelines(ev.model_dump_json() + "\n" for ev in events)
 
 
 def poll_once() -> list[CatalystEvent]:
@@ -90,9 +91,15 @@ def poll_once() -> list[CatalystEvent]:
     if new_events:
         _append_events(new_events)
         _save_seen(seen)
-        log.info("Poll complete: %d NEW catalyst events written to %s", len(new_events), EVENTS_LOG_PATH)
+        log.info(
+            "Poll complete: %d NEW catalyst events written to %s",
+            len(new_events),
+            EVENTS_LOG_PATH,
+        )
         for ev in new_events:
-            log.info("  [%s] %s — %s (%s)", ev.ticker, ev.kind.value, ev.title, ev.event_date)
+            log.info(
+                "  [%s] %s — %s (%s)", ev.ticker, ev.kind.value, ev.title, ev.event_date
+            )
     else:
         log.info("Poll complete: no new catalyst events.")
 
@@ -101,17 +108,26 @@ def poll_once() -> list[CatalystEvent]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Phase 1A catalyst watcher")
-    parser.add_argument("--once", action="store_true", help="poll a single time and exit")
-    parser.add_argument("--interval-min", type=int, default=15, help="polling interval in minutes")
+    parser.add_argument(
+        "--once", action="store_true", help="poll a single time and exit"
+    )
+    parser.add_argument(
+        "--interval-min", type=int, default=15, help="polling interval in minutes"
+    )
     args = parser.parse_args()
 
     if args.once:
         poll_once()
         return
 
-    log.info("Starting catalyst watcher, polling every %d min. Ctrl+C to stop.", args.interval_min)
+    log.info(
+        "Starting catalyst watcher, polling every %d min. Ctrl+C to stop.",
+        args.interval_min,
+    )
     scheduler = BlockingScheduler()
-    scheduler.add_job(poll_once, "interval", minutes=args.interval_min, next_run_time=None)
+    scheduler.add_job(
+        poll_once, "interval", minutes=args.interval_min, next_run_time=None
+    )
     poll_once()  # run immediately on startup too
     try:
         scheduler.start()

@@ -9,6 +9,7 @@ data/spectrograms/<symbol>/<iso-timestamp>.npy for Phase 4 to pick up.
 Run standalone against a live Alpaca stream:
     python -m sonification.pipeline
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -18,7 +19,13 @@ from pathlib import Path
 from config import get_logger, settings
 from tick_engine.alpaca_stream import AlpacaTickStream
 from tick_engine.rolling_deque import TickEngine
-from .spectrogram import audio_to_mel_spectrogram, normalize_for_model, save_spectrogram, save_wav
+
+from .spectrogram import (
+    audio_to_mel_spectrogram,
+    normalize_for_model,
+    save_spectrogram,
+    save_wav,
+)
 from .tick_to_audio import DEFAULT_SAMPLE_RATE, ticks_to_audio
 
 log = get_logger("sonification.pipeline")
@@ -66,7 +73,9 @@ class SonificationPipeline:
             while not self._stop.is_set():
                 await asyncio.sleep(self.hop_seconds)
                 for symbol in self.symbols:
-                    path = sonify_symbol(self.stream.engine, symbol, write_wav=write_wav)
+                    path = sonify_symbol(
+                        self.stream.engine, symbol, write_wav=write_wav
+                    )
                     if path:
                         log.info("Wrote spectrogram: %s", path)
         finally:

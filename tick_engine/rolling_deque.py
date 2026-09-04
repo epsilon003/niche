@@ -5,6 +5,7 @@ Plain, dependency-free deque-based ring buffer keyed by wall-clock age
 rather than a fixed count, since trade tick rates vary wildly by symbol
 and time of day.
 """
+
 from __future__ import annotations
 
 from collections import deque
@@ -91,9 +92,7 @@ class TickEngine:
         }
 
     def ingest(self, tick: Tick) -> None:
-        window = self.windows.setdefault(
-            tick.symbol, RollingTickWindow(tick.symbol)
-        )
+        window = self.windows.setdefault(tick.symbol, RollingTickWindow(tick.symbol))
         window.add(tick)
 
     def get(self, symbol: str) -> RollingTickWindow | None:

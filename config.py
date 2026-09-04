@@ -5,6 +5,7 @@ Every other module imports `settings` from here instead of calling
 os.getenv() directly, so there is exactly one place that knows how to
 find the .env file and one place to change if the schema changes.
 """
+
 from __future__ import annotations
 
 import logging
@@ -54,17 +55,13 @@ class Settings:
     openrouter_base_url: str = os.getenv(
         "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"
     )
-    openrouter_model: str = os.getenv(
-        "OPENROUTER_MODEL", "openrouter/free"
-    )
+    openrouter_model: str = os.getenv("OPENROUTER_MODEL", "openrouter/free")
 
     featherless_api_key: str = os.getenv("FEATHERLESS_API_KEY", "")
     featherless_base_url: str = os.getenv(
         "FEATHERLESS_BASE_URL", "https://api.featherless.ai/v1"
     )
-    featherless_model: str = os.getenv(
-        "FEATHERLESS_MODEL", "Qwen/Qwen2.5-72B-Instruct"
-    )
+    featherless_model: str = os.getenv("FEATHERLESS_MODEL", "Qwen/Qwen2.5-72B-Instruct")
 
     # Catalyst sources
     openfda_api_key: str = os.getenv("OPENFDA_API_KEY", "")
@@ -77,9 +74,11 @@ class Settings:
     # Misc
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
     data_dir: Path = Path(os.getenv("DATA_DIR", str(ROOT_DIR / "data")))
-    
+
     # ADDED: Path to the JSONL file where catalyst events are appended
-    events_file: Path = Path(os.getenv("DATA_DIR", str(ROOT_DIR / "data"))) / "events.jsonl"
+    events_file: Path = (
+        Path(os.getenv("DATA_DIR", str(ROOT_DIR / "data"))) / "events.jsonl"
+    )
 
     def validate_alpaca(self) -> list[str]:
         """Return a list of missing/invalid Alpaca settings, empty if OK."""
@@ -116,7 +115,9 @@ class Settings:
             return self.validate_openrouter()
         if self.llm_provider == "featherless":
             return self.validate_featherless()
-        return [f"Unknown LLM_PROVIDER {self.llm_provider!r} — expected 'openrouter' or 'featherless'"]
+        return [
+            f"Unknown LLM_PROVIDER {self.llm_provider!r} — expected 'openrouter' or 'featherless'"
+        ]
 
 
 settings = Settings()

@@ -32,6 +32,7 @@ Decision table (see `decide()` for the exact logic):
   UNCERTAIN / low-conf anything             open (z >= thr)    MONITOR       NONE  (something's happening, watch)
   UNCERTAIN / low-conf anything             closed             SKIP          NONE  (nothing to act on)
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -47,10 +48,10 @@ from .models import (
 )
 
 # --- tunable thresholds, all in one place ---
-SCI_CONFIDENCE_MIN = 0.55        # below this, treat the label as UNCERTAIN
-ANOMALY_Z_THRESHOLD = 2.5        # |z| at/above this counts as "market is reacting"
-ANOMALY_CONFIDENCE_MIN = 0.5     # EWMA stats need this many observations behind them
-DIRECTION_MIN_PCT = 0.3          # price move smaller than this (either way) counts as FLAT
+SCI_CONFIDENCE_MIN = 0.55  # below this, treat the label as UNCERTAIN
+ANOMALY_Z_THRESHOLD = 2.5  # |z| at/above this counts as "market is reacting"
+ANOMALY_CONFIDENCE_MIN = 0.5  # EWMA stats need this many observations behind them
+DIRECTION_MIN_PCT = 0.3  # price move smaller than this (either way) counts as FLAT
 
 
 def classify_direction(price_change_pct: float | None) -> MarketDirection:
@@ -66,7 +67,10 @@ def classify_direction(price_change_pct: float | None) -> MarketDirection:
 def _anomaly_gate_open(anomaly: MarketAnomaly | None) -> bool:
     if anomaly is None:
         return False
-    return abs(anomaly.z_score) >= ANOMALY_Z_THRESHOLD and anomaly.confidence >= ANOMALY_CONFIDENCE_MIN
+    return (
+        abs(anomaly.z_score) >= ANOMALY_Z_THRESHOLD
+        and anomaly.confidence >= ANOMALY_CONFIDENCE_MIN
+    )
 
 
 def decide(
@@ -79,7 +83,9 @@ def decide(
 
     effective_label = sci.label if sci.confidence >= SCI_CONFIDENCE_MIN else "UNCERTAIN"
 
-    decision, bias, reason_code, reason = _apply_rules(effective_label, direction, gate_open, sci)
+    decision, bias, reason_code, reason = _apply_rules(
+        effective_label, direction, gate_open, sci
+    )
 
     return CrossIntelDecision(
         ticker=sci.ticker,
@@ -109,12 +115,16 @@ def _apply_rules(
     if effective_label == "UNCERTAIN":
         if gate_open:
             return (
-                Decision.MONITOR, Bias.NONE, "uncertain_but_market_moving",
+                Decision.MONITOR,
+                Bias.NONE,
+                "uncertain_but_market_moving",
                 "Scientific read is uncertain (or low-confidence), but the market "
                 "is showing an unusual move right now — watch, don't act yet.",
             )
         return (
-            Decision.SKIP, Bias.NONE, "no_signal",
+            Decision.SKIP,
+            Bias.NONE,
+            "no_signal",
             "Scientific read is uncertain and the market shows nothing unusual. "
             "Nothing to act on.",
         )
@@ -122,19 +132,25 @@ def _apply_rules(
     if effective_label == "POSITIVE":
         if direction == MarketDirection.UP and gate_open:
             return (
-                Decision.TRADE, Bias.CALL, "confirmed_positive",
+                Decision.TRADE,
+                Bias.CALL,
+                "confirmed_positive",
                 f"Scientific agent read POSITIVE ({sci.confidence:.2f} confidence) and "
                 "the market is moving up on unusual volume/volatility — confirmed.",
             )
         if direction == MarketDirection.DOWN and gate_open:
             return (
-                Decision.SKIP, Bias.NONE, "disagree_positive_but_market_down",
+                Decision.SKIP,
+                Bias.NONE,
+                "disagree_positive_but_market_down",
                 "Scientific agent read POSITIVE but the market is moving down on an "
                 "unusual, high-confidence anomaly — the market may be pricing in "
                 "something the agent didn't see. Disagreement — skip.",
             )
         return (
-            Decision.MONITOR, Bias.NONE, "positive_awaiting_confirmation",
+            Decision.MONITOR,
+            Bias.NONE,
+            "positive_awaiting_confirmation",
             "Scientific agent read POSITIVE but the market hasn't reacted yet "
             "(flat, or no confirmed anomaly) — wait for price action to confirm.",
         )
@@ -142,18 +158,24 @@ def _apply_rules(
     if effective_label == "NEGATIVE":
         if direction == MarketDirection.DOWN and gate_open:
             return (
-                Decision.TRADE, Bias.PUT, "confirmed_negative",
+                Decision.TRADE,
+                Bias.PUT,
+                "confirmed_negative",
                 f"Scientific agent read NEGATIVE ({sci.confidence:.2f} confidence) and "
                 "the market is moving down on unusual volume/volatility — confirmed.",
             )
         if direction == MarketDirection.UP and gate_open:
             return (
-                Decision.SKIP, Bias.NONE, "disagree_negative_but_market_up",
+                Decision.SKIP,
+                Bias.NONE,
+                "disagree_negative_but_market_up",
                 "Scientific agent read NEGATIVE but the market is moving up on an "
                 "unusual, high-confidence anomaly — disagreement — skip.",
             )
         return (
-            Decision.MONITOR, Bias.NONE, "negative_awaiting_confirmation",
+            Decision.MONITOR,
+            Bias.NONE,
+            "negative_awaiting_confirmation",
             "Scientific agent read NEGATIVE but the market hasn't reacted yet "
             "— wait for price action to confirm.",
         )
@@ -162,6 +184,8 @@ def _apply_rules(
     # upstream in scientific_agent, but never silently trade on a signal we
     # don't recognize.
     return (
-        Decision.SKIP, Bias.NONE, "unrecognized_label",
+        Decision.SKIP,
+        Bias.NONE,
+        "unrecognized_label",
         f"Unrecognized scientific label {effective_label!r} — refusing to act.",
     )

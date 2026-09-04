@@ -10,11 +10,11 @@ deviations off this ticker's own recent normal is this window."
 
 Persisted to disk so the running stats survive process restarts.
 """
+
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, asdict
-from pathlib import Path
+from dataclasses import asdict, dataclass
 
 from config import get_logger, settings
 
@@ -30,7 +30,7 @@ class EwmaState:
     n: int = 0
 
     @classmethod
-    def fresh(cls) -> "EwmaState":
+    def fresh(cls) -> EwmaState:
         return cls(mean=0.0, var=1e-6, n=0)
 
 
@@ -48,7 +48,9 @@ class AnomalyScorer:
             self._state = {sym: EwmaState(**s) for sym, s in raw.items()}
 
     def _save(self) -> None:
-        STATE_PATH.write_text(json.dumps({sym: asdict(s) for sym, s in self._state.items()}))
+        STATE_PATH.write_text(
+            json.dumps({sym: asdict(s) for sym, s in self._state.items()})
+        )
 
     def score(self, symbol: str, raw_error: float) -> dict:
         """
@@ -65,10 +67,10 @@ class AnomalyScorer:
         else:
             delta = raw_error - state.mean
             state.mean += self.alpha * delta
-            state.var = (1 - self.alpha) * (state.var + self.alpha * delta ** 2)
+            state.var = (1 - self.alpha) * (state.var + self.alpha * delta**2)
         state.n += 1
 
-        std = max(state.var ** 0.5, 1e-6)
+        std = max(state.var**0.5, 1e-6)
         z = (raw_error - state.mean) / std
 
         self._save()

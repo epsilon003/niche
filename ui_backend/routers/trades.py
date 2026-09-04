@@ -10,18 +10,23 @@ being run without real keys), they return {"connected": false, "error":
 ...} with a 200 rather than a 500, so the frontend can show a clear
 "not connected" state instead of an error boundary.
 """
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Query
 
 from options_execution import alpaca_options_client as alpaca
+
 from .. import data_access
 
 router = APIRouter(prefix="/api", tags=["trades"])
 
 
 @router.get("/trades")
-def get_trades(status: str | None = Query(default=None), limit: int = Query(default=200, ge=1, le=2000)):
+def get_trades(
+    status: str | None = Query(default=None),
+    limit: int = Query(default=200, ge=1, le=2000),
+):
     return {"trades": data_access.trade_log(status=status, limit=limit)}
 
 
@@ -55,10 +60,18 @@ def get_positions():
                 "symbol": p.get("symbol"),
                 "qty": float(p.get("qty", 0)),
                 "avg_entry_price": float(p.get("avg_entry_price", 0)),
-                "current_price": float(p.get("current_price", 0)) if p.get("current_price") else None,
-                "market_value": float(p.get("market_value", 0)) if p.get("market_value") else None,
-                "unrealized_pl": float(p.get("unrealized_pl", 0)) if p.get("unrealized_pl") else None,
-                "unrealized_plpc": float(p.get("unrealized_plpc", 0)) if p.get("unrealized_plpc") else None,
+                "current_price": float(p.get("current_price", 0))
+                if p.get("current_price")
+                else None,
+                "market_value": float(p.get("market_value", 0))
+                if p.get("market_value")
+                else None,
+                "unrealized_pl": float(p.get("unrealized_pl", 0))
+                if p.get("unrealized_pl")
+                else None,
+                "unrealized_plpc": float(p.get("unrealized_plpc", 0))
+                if p.get("unrealized_plpc")
+                else None,
             }
             for p in positions
         ],

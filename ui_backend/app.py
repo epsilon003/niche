@@ -11,12 +11,14 @@ Run:
 or:
     python -m ui_backend.app
 """
+
 from __future__ import annotations
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import get_logger
+
 from .routers import agent_log, market, trades
 
 log = get_logger("ui_backend.app")
@@ -44,4 +46,5 @@ def health():
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("ui_backend.app:app", host="0.0.0.0", port=8000, reload=True)

@@ -1,4 +1,5 @@
 """Phase 6 — data model for option contracts, spreads, and the trade log."""
+
 from __future__ import annotations
 
 from datetime import date, datetime

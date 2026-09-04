@@ -11,6 +11,7 @@ learn "what normal 60s tick-sonification looks like" for a handful of
 watchlist tickers, not to be a large generative model. Reconstruction error
 is the anomaly signal Phase 5 consumes.
 """
+
 from __future__ import annotations
 
 import torch
@@ -18,7 +19,9 @@ from torch import nn
 
 
 class ConvAutoencoder(nn.Module):
-    def __init__(self, in_channels: int = 1, base_channels: int = 16, latent_channels: int = 64):
+    def __init__(
+        self, in_channels: int = 1, base_channels: int = 16, latent_channels: int = 64
+    ):
         super().__init__()
 
         c1, c2, c3 = base_channels, base_channels * 2, base_channels * 4
@@ -61,7 +64,9 @@ class ConvAutoencoder(nn.Module):
         recon = _match_shape(recon, x.shape[-2:])
         return recon
 
-    def reconstruction_error(self, x: torch.Tensor, reduction: str = "mean") -> torch.Tensor:
+    def reconstruction_error(
+        self, x: torch.Tensor, reduction: str = "mean"
+    ) -> torch.Tensor:
         """Per-sample MSE reconstruction error — the raw anomaly signal."""
         recon = self.forward(x)
         err = (recon - x) ** 2

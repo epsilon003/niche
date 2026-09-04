@@ -5,12 +5,14 @@ Every endpoint reads directly from the same data/*.jsonl files the
 pipeline phases already write — there's no separate database. This module
 is the one place that knows those file layouts, so routers stay thin.
 """
+
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 import numpy as np
 
@@ -66,18 +68,22 @@ def parse_iso_datetime(value: Any) -> datetime | None:
 
 # --- per-source event -> unified agent-log-event shape ---
 
+
 def _catalyst_events() -> list[dict]:
     events = []
     for row in _read_jsonl(CATALYST_EVENTS_PATH):
-        events.append({
-            "phase": "catalyst_watcher",
-            "ticker": row.get("ticker"),
-            "timestamp": row.get("fetched_at"),
-            "title": f"{row.get('ticker')} — {row.get('kind')}",
-            "detail": row.get("title", "") + (f" ({row['detail']})" if row.get("detail") else ""),
-            "url": row.get("url", ""),
-            "raw": row,
-        })
+        events.append(
+            {
+                "phase": "catalyst_watcher",
+                "ticker": row.get("ticker"),
+                "timestamp": row.get("fetched_at"),
+                "title": f"{row.get('ticker')} — {row.get('kind')}",
+                "detail": row.get("title", "")
+                + (f" ({row['detail']})" if row.get("detail") else ""),
+                "url": row.get("url", ""),
+                "raw": row,
+            }
+        )
     return events
 
 
@@ -86,30 +92,34 @@ def _scientific_events() -> list[dict]:
     for row in _read_jsonl(SCIENTIFIC_LOG_PATH):
         conf = row.get("confidence")
         conf_str = f"{conf:.0%}" if isinstance(conf, (int, float)) else "?"
-        events.append({
-            "phase": "scientific_agent",
-            "ticker": row.get("ticker"),
-            "timestamp": row.get("classified_at"),
-            "title": f"{row.get('ticker')} — {row.get('label')} ({conf_str} confidence)",
-            "detail": row.get("rationale", ""),
-            "url": row.get("catalyst_url", ""),
-            "raw": row,
-        })
+        events.append(
+            {
+                "phase": "scientific_agent",
+                "ticker": row.get("ticker"),
+                "timestamp": row.get("classified_at"),
+                "title": f"{row.get('ticker')} — {row.get('label')} ({conf_str} confidence)",
+                "detail": row.get("rationale", ""),
+                "url": row.get("catalyst_url", ""),
+                "raw": row,
+            }
+        )
     return events
 
 
 def _cross_intel_events() -> list[dict]:
     events = []
     for row in _read_jsonl(DECISIONS_LOG_PATH):
-        events.append({
-            "phase": "cross_intelligence",
-            "ticker": row.get("ticker"),
-            "timestamp": row.get("decided_at"),
-            "title": f"{row.get('ticker')} — {row.get('decision')} ({row.get('bias')})",
-            "detail": row.get("reason", ""),
-            "url": row.get("catalyst_url", ""),
-            "raw": row,
-        })
+        events.append(
+            {
+                "phase": "cross_intelligence",
+                "ticker": row.get("ticker"),
+                "timestamp": row.get("decided_at"),
+                "title": f"{row.get('ticker')} — {row.get('decision')} ({row.get('bias')})",
+                "detail": row.get("reason", ""),
+                "url": row.get("catalyst_url", ""),
+                "raw": row,
+            }
+        )
     return events
 
 
@@ -117,15 +127,17 @@ def _trade_events() -> list[dict]:
     events = []
     for row in _read_jsonl(TRADE_LOG_PATH):
         detail = row.get("spread_description") or row.get("rejection_reason") or ""
-        events.append({
-            "phase": "options_execution",
-            "ticker": row.get("ticker"),
-            "timestamp": row.get("logged_at"),
-            "title": f"{row.get('ticker')} — {row.get('status')}",
-            "detail": detail,
-            "url": "",
-            "raw": row,
-        })
+        events.append(
+            {
+                "phase": "options_execution",
+                "ticker": row.get("ticker"),
+                "timestamp": row.get("logged_at"),
+                "title": f"{row.get('ticker')} — {row.get('status')}",
+                "detail": detail,
+                "url": "",
+                "raw": row,
+            }
+        )
     return events
 
 
@@ -135,7 +147,10 @@ def merge_agent_log_events(
 ) -> list[dict]:
     """All four phases' events, unified, sorted ascending by timestamp."""
     all_events: Iterable[dict] = (
-        _catalyst_events() + _scientific_events() + _cross_intel_events() + _trade_events()
+        _catalyst_events()
+        + _scientific_events()
+        + _cross_intel_events()
+        + _trade_events()
     )
     out = []
     for ev in all_events:
@@ -155,6 +170,7 @@ def merge_agent_log_events(
 
 
 # --- market data ---
+
 
 def list_known_symbols() -> list[str]:
     symbols = set(settings.watchlist)
@@ -183,7 +199,11 @@ def latest_spectrogram(symbol: str, target_frames: int = 200) -> dict | None:
     n_mels, n_frames = spec.shape
     if n_frames > target_frames:
         # block-mean pool along the time axis
-        trimmed = spec[:, : n_frames - (n_frames % target_frames)] if n_frames % target_frames else spec
+        trimmed = (
+            spec[:, : n_frames - (n_frames % target_frames)]
+            if n_frames % target_frames
+            else spec
+        )
         pooled = trimmed.reshape(n_mels, target_frames, -1).mean(axis=2)
     else:
         pooled = spec
@@ -198,7 +218,11 @@ def latest_spectrogram(symbol: str, target_frames: int = 200) -> dict | None:
 
 
 def anomaly_history(symbol: str, limit: int = 200) -> list[dict]:
-    rows = [r for r in _read_jsonl(ANOMALY_LOG_PATH) if r.get("symbol", "").upper() == symbol.upper()]
+    rows = [
+        r
+        for r in _read_jsonl(ANOMALY_LOG_PATH)
+        if r.get("symbol", "").upper() == symbol.upper()
+    ]
     rows.sort(key=lambda r: r.get("timestamp", ""))
     return rows[-limit:]
 

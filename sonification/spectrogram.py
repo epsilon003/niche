@@ -8,6 +8,7 @@ are visible in one place (and reused identically at train and inference
 time in Phase 4 — a mismatch here is the classic silent bug in this kind
 of pipeline).
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -70,7 +71,9 @@ def load_spectrogram(path: Path) -> np.ndarray:
     return np.load(str(path))
 
 
-def expected_frames(duration_seconds: float, sample_rate: int, hop_length: int = HOP_LENGTH) -> int:
+def expected_frames(
+    duration_seconds: float, sample_rate: int, hop_length: int = HOP_LENGTH
+) -> int:
     """
     Number of STFT frames librosa produces for a signal of this length
     (center=True padding, which is the melspectrogram default). Phase 4

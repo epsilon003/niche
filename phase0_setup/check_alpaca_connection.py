@@ -11,6 +11,7 @@ Run this once after filling in .env to confirm:
 Usage:
     python -m phase0_setup.check_alpaca_connection
 """
+
 from __future__ import annotations
 
 import asyncio

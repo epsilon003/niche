@@ -16,6 +16,7 @@ partial pipeline.
 Usage:
     python -m cross_intelligence.engine --once
 """
+
 from __future__ import annotations
 
 import argparse
@@ -24,6 +25,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from config import get_logger, settings
+
 from .models import CrossIntelDecision, MarketAnomaly, MarketStats, ScientificSignal
 from .rules import decide
 
@@ -60,7 +62,9 @@ def _load_anomalies_by_symbol() -> dict[str, list[MarketAnomaly]]:
         anomaly = MarketAnomaly.model_validate_json(line)
         by_symbol.setdefault(anomaly.symbol, []).append(anomaly)
     for lst in by_symbol.values():
-        lst.sort(key=lambda a: a.timestamp)  # "%Y%m%dT%H%M%S" sorts lexically = chronologically
+        lst.sort(
+            key=lambda a: a.timestamp
+        )  # "%Y%m%dT%H%M%S" sorts lexically = chronologically
     return by_symbol
 
 
@@ -127,7 +131,9 @@ def run_once() -> list[CrossIntelDecision]:
 
     with DECISIONS_LOG_PATH.open("a") as f:
         for sci in todo:
-            anomaly = _find_best_anomaly(sci.ticker, sci.classified_at, anomalies_by_symbol)
+            anomaly = _find_best_anomaly(
+                sci.ticker, sci.classified_at, anomalies_by_symbol
+            )
             stats = _load_stats_for_anomaly(anomaly) if anomaly else None
 
             result = decide(sci, anomaly, stats)
@@ -137,11 +143,16 @@ def run_once() -> list[CrossIntelDecision]:
 
             log.info(
                 "[%s] %s (%s) — %s | sci=%s(%.2f) dir=%s z=%s",
-                result.ticker, result.decision.value, result.reason_code,
+                result.ticker,
+                result.decision.value,
+                result.reason_code,
                 result.catalyst_title[:60],
-                result.scientific_label, result.scientific_confidence,
+                result.scientific_label,
+                result.scientific_confidence,
                 result.market_direction.value,
-                f"{result.anomaly_z_score:+.2f}" if result.anomaly_z_score is not None else "n/a",
+                f"{result.anomaly_z_score:+.2f}"
+                if result.anomaly_z_score is not None
+                else "n/a",
             )
 
     _save_seen(seen)

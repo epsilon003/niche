@@ -9,6 +9,7 @@ status + key dates + results-posted flag, and turn each study into a
 CatalystEvent. The watcher (watcher.py) is responsible for diffing against
 previously-seen state to decide what's actually "new."
 """
+
 from __future__ import annotations
 
 from datetime import date, datetime
@@ -17,6 +18,7 @@ import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from config import get_logger
+
 from .models import CatalystEvent, CatalystKind, CatalystSource
 
 log = get_logger("catalyst_watcher.clinicaltrials")
@@ -100,7 +102,10 @@ def search_studies(
 
     log.info(
         "CT.gov: %d studies -> %d catalyst events for %s (%s)",
-        fetched, len(events), ticker, company_or_intervention,
+        fetched,
+        len(events),
+        ticker,
+        company_or_intervention,
     )
     return events
 

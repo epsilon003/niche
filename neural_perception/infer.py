@@ -1,132 +1,77 @@
 """
-Phase 4 — Neural perception inference.
+Phase 4 — Inference Engine.
 
-Loads the trained autoencoder, watches data/spectrograms/<symbol>/ for new
-files dropped by Phase 3's pipeline, computes reconstruction error for each,
-converts it to a per-symbol z-score via AnomalyScorer, and appends the
-result to data/anomaly_scores.jsonl — the file Phase 5 (cross-intelligence
-agent) reads to fuse market-microstructure anomaly against the scientific
-signal.
-
-Usage (one-shot over whatever's new):
-    python -m neural_perception.infer --once
-
-Usage (poll continuously):
-    python -m neural_perception.infer
+Loads the trained autoencoder and its dynamic threshold manifest to score
+incoming tick spectrograms. Outputs an anomaly score and a boolean flag
+indicating if the threshold was breached.
 """
+
 from __future__ import annotations
 
-import argparse
 import json
-import time
-from pathlib import Path
 
-import numpy as np
 import torch
 
 from config import get_logger, settings
-from sonification.spectrogram import pad_or_trim
-from .anomaly_scorer import AnomalyScorer
+
 from .autoencoder import ConvAutoencoder
-from .train import DEFAULT_CHECKPOINT
 
 log = get_logger("neural_perception.infer")
 
-SPECTROGRAM_DIR = settings.data_dir / "spectrograms"
-SCORES_LOG_PATH = settings.data_dir / "anomaly_scores.jsonl"
-PROCESSED_SEEN_PATH = settings.data_dir / "anomaly_processed_seen.json"
+MODEL_DIR = settings.data_dir / "models" / "autoencoder"
+WEIGHTS_PATH = MODEL_DIR / "weights.pt"
+MANIFEST_PATH = MODEL_DIR / "manifest.json"
 
 
-def load_model(checkpoint_path: Path = DEFAULT_CHECKPOINT) -> tuple[ConvAutoencoder, int]:
-    if not checkpoint_path.exists():
-        raise FileNotFoundError(
-            f"No checkpoint at {checkpoint_path}. Run `python -m "
-            "neural_perception.train` first."
-        )
-    ckpt = torch.load(checkpoint_path, map_location="cpu")
-    model = ConvAutoencoder(base_channels=16, latent_channels=64)
-    model.load_state_dict(ckpt["model_state"])
-    model.eval()
-    return model, ckpt["target_frames"]
+class AnomalyInferencer:
+    def __init__(self):
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model = self._load_model()
+        self.manifest = self._load_manifest()
+        self.threshold = self.manifest.get(
+            "mse_threshold_995_percentile", 0.05
+        )  # Fallback
+        log.info(f"Inferencer loaded. Active MSE Threshold: {self.threshold:.6f}")
 
-
-def score_file(model: ConvAutoencoder, target_frames: int, path: Path, scorer: AnomalyScorer) -> dict:
-    symbol = path.parent.name
-    spec = np.load(str(path))
-    spec = pad_or_trim(spec, target_frames)
-    tensor = torch.from_numpy(spec).unsqueeze(0).unsqueeze(0).float()  # (1,1,n_mels,frames)
-
-    with torch.no_grad():
-        raw_error = model.reconstruction_error(tensor, reduction="mean").item()
-
-    result = scorer.score(symbol, raw_error)
-    result["source_file"] = str(path)
-    result["timestamp"] = path.stem  # pipeline names files by iso-ish timestamp
-    return result
-
-
-def _load_seen() -> set[str]:
-    if not PROCESSED_SEEN_PATH.exists():
-        return set()
-    return set(json.loads(PROCESSED_SEEN_PATH.read_text()))
-
-
-def _save_seen(seen: set[str]) -> None:
-    PROCESSED_SEEN_PATH.write_text(json.dumps(sorted(seen)))
-
-
-def run_once(checkpoint_path: Path = DEFAULT_CHECKPOINT) -> int:
-    model, target_frames = load_model(checkpoint_path)
-    scorer = AnomalyScorer()
-    seen = _load_seen()
-
-    all_files = sorted(SPECTROGRAM_DIR.rglob("*.npy"))
-    todo = [p for p in all_files if str(p) not in seen]
-    if not todo:
-        log.info("No new spectrograms to score.")
-        return 0
-
-    written = 0
-    with SCORES_LOG_PATH.open("a") as f:
-        for path in todo:
-            try:
-                result = score_file(model, target_frames, path, scorer)
-            except Exception:
-                log.exception("Failed to score %s, skipping", path)
-                continue
-            f.write(json.dumps(result) + "\n")
-            seen.add(str(path))
-            written += 1
-            flag = " ANOMALY" if abs(result["z_score"]) > 3 and result["confidence"] >= 1.0 else ""
-            log.info(
-                "%-6s raw_err=%.5f z=%+.2f conf=%.2f%s",
-                result["symbol"], result["raw_error"], result["z_score"], result["confidence"], flag,
+    def _load_model(self) -> ConvAutoencoder:
+        if not WEIGHTS_PATH.exists():
+            raise FileNotFoundError(
+                f"No model weights found at {WEIGHTS_PATH}. Run train.py first."
             )
 
-    _save_seen(seen)
-    log.info("Scored %d new spectrograms -> %s", written, SCORES_LOG_PATH)
-    return written
+        model = ConvAutoencoder(in_channels=1).to(self.device)
+        model.load_state_dict(torch.load(WEIGHTS_PATH, map_location=self.device))
+        model.eval()
+        return model
 
+    def _load_manifest(self) -> dict:
+        if not MANIFEST_PATH.exists():
+            log.warning("Manifest not found. Using default threshold.")
+            return {"mse_threshold_995_percentile": 0.05}
+        with open(MANIFEST_PATH, "r") as f:
+            return json.load(f)
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Phase 4 neural perception inference")
-    parser.add_argument("--once", action="store_true")
-    parser.add_argument("--poll-seconds", type=float, default=5.0)
-    parser.add_argument("--checkpoint", type=Path, default=DEFAULT_CHECKPOINT)
-    args = parser.parse_args()
+    @torch.no_grad()
+    def score(self, spectrogram_tensor: torch.Tensor) -> dict:
+        """
+        Takes a (1, N_MELS, T_FRAMES) tensor and returns anomaly metrics.
+        """
+        x = spectrogram_tensor.unsqueeze(0).to(self.device)  # Add batch dim
+        recon = self.model(x)
 
-    if args.once:
-        run_once(args.checkpoint)
-        return
+        # Calculate Mean Squared Error for this specific sample
+        mse = torch.mean((recon - x) ** 2).item()
 
-    log.info("Polling %s every %.1fs. Ctrl+C to stop.", SPECTROGRAM_DIR, args.poll_seconds)
-    try:
-        while True:
-            run_once(args.checkpoint)
-            time.sleep(args.poll_seconds)
-    except KeyboardInterrupt:
-        log.info("Stopped.")
+        # Calculate Z-score relative to training distribution
+        mean_err = self.manifest.get("mean_recon_error", 0)
+        std_err = self.manifest.get("std_recon_error", 1)
+        z_score = (mse - mean_err) / std_err if std_err > 0 else 0
 
+        is_anomaly = mse > self.threshold
 
-if __name__ == "__main__":
-    main()
+        return {
+            "mse": mse,
+            "z_score": z_score,
+            "is_anomaly": is_anomaly,
+            "threshold": self.threshold,
+        }

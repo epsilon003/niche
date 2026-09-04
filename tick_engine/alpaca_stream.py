@@ -12,17 +12,19 @@ only polling the rolling window.
 Run standalone:
     python -m tick_engine.alpaca_stream
 """
+
 from __future__ import annotations
 
 import asyncio
 import json
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
-from typing import Awaitable, Callable, Optional
 
 import websockets
 from websockets.exceptions import ConnectionClosed
 
 from config import get_logger, settings
+
 from .rolling_deque import Tick, TickEngine
 
 log = get_logger("tick_engine.alpaca_stream")
@@ -35,7 +37,7 @@ class AlpacaTickStream:
         self,
         symbols: list[str] | None = None,
         window_seconds: float = 60.0,
-        on_tick: Optional[OnTick] = None,
+        on_tick: OnTick | None = None,
     ):
         self.symbols = symbols or settings.watchlist
         self.engine = TickEngine(self.symbols, window_seconds=window_seconds)
@@ -80,13 +82,19 @@ class AlpacaTickStream:
 
     async def _authenticate(self, ws) -> None:
         await ws.recv()  # server greeting
-        await ws.send(json.dumps({
-            "action": "auth",
-            "key": settings.alpaca_api_key,
-            "secret": settings.alpaca_secret_key,
-        }))
+        await ws.send(
+            json.dumps(
+                {
+                    "action": "auth",
+                    "key": settings.alpaca_api_key,
+                    "secret": settings.alpaca_secret_key,
+                }
+            )
+        )
         resp = json.loads(await ws.recv())
-        ok = any(m.get("T") == "success" and m.get("msg") == "authenticated" for m in resp)
+        ok = any(
+            m.get("T") == "success" and m.get("msg") == "authenticated" for m in resp
+        )
         if not ok:
             raise RuntimeError(f"Alpaca WS auth failed: {resp}")
 
@@ -121,7 +129,13 @@ def _parse_alpaca_ts(raw: str) -> datetime:
 
 
 async def _demo_on_tick(tick: Tick) -> None:
-    log.info("TICK %-6s $%8.2f x%-6d @ %s", tick.symbol, tick.price, tick.size, tick.timestamp.time())
+    log.info(
+        "TICK %-6s $%8.2f x%-6d @ %s",
+        tick.symbol,
+        tick.price,
+        tick.size,
+        tick.timestamp.time(),
+    )
 
 
 async def _main() -> None:

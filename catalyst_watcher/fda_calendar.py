@@ -18,16 +18,17 @@ So this module does two things:
      turned into PDUFA_DATE events. This keeps the pipeline honest about
      what's live-fetched vs. what's operator-supplied.
 """
+
 from __future__ import annotations
 
 import json
 from datetime import date, datetime
-from pathlib import Path
 
 import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from config import get_logger, settings
+
 from .models import CatalystEvent, CatalystKind, CatalystSource
 
 log = get_logger("catalyst_watcher.fda_calendar")
@@ -40,25 +41,27 @@ CURATED_CALENDAR_PATH = settings.data_dir / "pdufa_calendar.json"
 def _fetch(params: dict) -> dict:
     if settings.openfda_api_key:
         params = {**params, "api_key": settings.openfda_api_key}
-    
+
     resp = httpx.get(OPENFDA_DRUGSFDA_URL, params=params, timeout=15.0)
-    
-    # openFDA returns 404 when no records match the query. 
-    # This is expected behavior (not a transient network error), so we return 
+
+    # openFDA returns 404 when no records match the query.
+    # This is expected behavior (not a transient network error), so we return
     # an empty result set directly to avoid triggering tenacity retries.
     if resp.status_code == 404:
         log.debug("openFDA: no records found for query params: %s", params)
         return {"results": []}
-        
-    # For any other error (5xx server errors, 429 rate limits), 
+
+    # For any other error (5xx server errors, 429 rate limits),
     # raise_for_status will trigger the tenacity retry mechanism as intended.
     resp.raise_for_status()
     return resp.json()
 
 
-def fetch_recent_actions(company_name: str, ticker: str, limit: int = 20) -> list[CatalystEvent]:
+def fetch_recent_actions(
+    company_name: str, ticker: str, limit: int = 20
+) -> list[CatalystEvent]:
     """Pull the most recent FDA application actions for a sponsor name."""
-    # Tip: If you get empty results for "Moderna", try "ModernaTX" or "Moderna Tx", 
+    # Tip: If you get empty results for "Moderna", try "ModernaTX" or "Moderna Tx",
     # as that is the official sponsor name registered in FDA databases.
     params = {
         "search": f'sponsor_name:"{company_name}"',
@@ -68,10 +71,17 @@ def fetch_recent_actions(company_name: str, ticker: str, limit: int = 20) -> lis
     try:
         payload = _fetch(params)
     except httpx.HTTPStatusError as exc:
-        log.error("openFDA request failed for %r (HTTP %s): %s", company_name, exc.response.status_code, exc)
+        log.error(
+            "openFDA request failed for %r (HTTP %s): %s",
+            company_name,
+            exc.response.status_code,
+            exc,
+        )
         return []
     except httpx.HTTPError as exc:
-        log.error("openFDA request failed for %r (Network/Timeout): %s", company_name, exc)
+        log.error(
+            "openFDA request failed for %r (Network/Timeout): %s", company_name, exc
+        )
         return []
     except Exception as exc:
         # Catches tenacity.RetryError if all retries are exhausted for 5xx errors
@@ -102,7 +112,12 @@ def fetch_recent_actions(company_name: str, ticker: str, limit: int = 20) -> lis
                 )
             )
 
-    log.info("openFDA: %d results -> %d events for %s", len(payload.get("results", [])), len(events), ticker)
+    log.info(
+        "openFDA: %d results -> %d events for %s",
+        len(payload.get("results", [])),
+        len(events),
+        ticker,
+    )
     return events
 
 
@@ -138,11 +153,17 @@ def load_curated_pdufa_dates() -> list[CatalystEvent]:
     try:
         entries = json.loads(CURATED_CALENDAR_PATH.read_text())
     except json.JSONDecodeError as exc:
-        log.error("Failed to parse curated PDUFA calendar at %s (invalid JSON): %s", CURATED_CALENDAR_PATH, exc)
+        log.error(
+            "Failed to parse curated PDUFA calendar at %s (invalid JSON): %s",
+            CURATED_CALENDAR_PATH,
+            exc,
+        )
         return []
 
     if not isinstance(entries, list):
-        log.error("Curated PDUFA calendar at %s must be a JSON list.", CURATED_CALENDAR_PATH)
+        log.error(
+            "Curated PDUFA calendar at %s must be a JSON list.", CURATED_CALENDAR_PATH
+        )
         return []
 
     events: list[CatalystEvent] = []
@@ -154,7 +175,7 @@ def load_curated_pdufa_dates() -> list[CatalystEvent]:
         except (KeyError, ValueError) as exc:
             log.warning("Skipping malformed curated PDUFA entry %r: %s", entry, exc)
             continue
-        
+
         ticker = entry.get("ticker", "UNKNOWN").upper()
         events.append(
             CatalystEvent(
@@ -165,9 +186,11 @@ def load_curated_pdufa_dates() -> list[CatalystEvent]:
                 title=entry.get("drug", "PDUFA date"),
                 detail=entry.get("note", ""),
                 url=entry.get("url", ""),
-                external_id=f"{ticker}:{entry.get('drug','')}:{entry['pdufa_date']}",
+                external_id=f"{ticker}:{entry.get('drug', '')}:{entry['pdufa_date']}",
                 raw=entry,
             )
         )
-    log.info("Loaded %d curated PDUFA events from %s", len(events), CURATED_CALENDAR_PATH)
+    log.info(
+        "Loaded %d curated PDUFA events from %s", len(events), CURATED_CALENDAR_PATH
+    )
     return events

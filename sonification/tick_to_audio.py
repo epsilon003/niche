@@ -17,6 +17,7 @@ Output is a mono float32 waveform in [-1, 1] at `sample_rate`, exactly
 `duration_seconds` long, regardless of how many/few ticks were in the
 window (silence-padded if the window was thin).
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -25,7 +26,7 @@ from tick_engine.rolling_deque import Tick
 
 DEFAULT_SAMPLE_RATE = 22_050
 DEFAULT_DURATION_SECONDS = 60.0
-DEFAULT_FREQ_LOW = 220.0   # A3 — mapped to the window's lowest price
+DEFAULT_FREQ_LOW = 220.0  # A3 — mapped to the window's lowest price
 DEFAULT_FREQ_HIGH = 880.0  # A5 — mapped to the window's highest price
 
 
@@ -47,9 +48,9 @@ def ticks_to_audio(
     # always lands at duration_seconds, and older ticks fall earlier —
     # this matches how RollingTickWindow reports "last window_seconds."
     t_last = ticks[-1].timestamp
-    offsets = np.array([
-        duration_seconds - (t_last - t.timestamp).total_seconds() for t in ticks
-    ])
+    offsets = np.array(
+        [duration_seconds - (t_last - t.timestamp).total_seconds() for t in ticks]
+    )
     offsets = np.clip(offsets, 0.0, duration_seconds)
 
     prices = np.array([t.price for t in ticks], dtype=np.float64)
@@ -113,7 +114,9 @@ def _price_to_freq_track(
     # np.interp needs strictly increasing x; ticks can share a timestamp —
     # nudge duplicates apart by a negligible epsilon.
     offsets_unique = np.maximum.accumulate(offsets + np.arange(len(offsets)) * 1e-9)
-    norm_at_sample = np.interp(sample_times, offsets_unique, norm, left=norm[0], right=norm[-1])
+    norm_at_sample = np.interp(
+        sample_times, offsets_unique, norm, left=norm[0], right=norm[-1]
+    )
 
     # log-frequency mapping (musically even steps, avoids high end sounding cramped)
     log_low, log_high = np.log(freq_low), np.log(freq_high)

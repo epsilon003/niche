@@ -1,4 +1,5 @@
 """Phase 5 — data model shared between the rule engine and its inputs/outputs."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -8,9 +9,9 @@ from pydantic import BaseModel
 
 
 class Decision(str, Enum):
-    TRADE = "TRADE"      # confirm — scientific + market agree, act
+    TRADE = "TRADE"  # confirm — scientific + market agree, act
     MONITOR = "MONITOR"  # wait — one signal present, the other not confirming yet
-    SKIP = "SKIP"        # disagree, or no usable signal at all — don't act
+    SKIP = "SKIP"  # disagree, or no usable signal at all — don't act
 
 
 class MarketDirection(str, Enum):
@@ -27,6 +28,7 @@ class Bias(str, Enum):
 
 class ScientificSignal(BaseModel):
     """One row from data/scientific_classifications.jsonl."""
+
     ticker: str
     label: str  # POSITIVE | NEGATIVE | UNCERTAIN
     confidence: float
@@ -40,6 +42,7 @@ class ScientificSignal(BaseModel):
 
 class MarketAnomaly(BaseModel):
     """One row from data/anomaly_scores.jsonl."""
+
     symbol: str
     raw_error: float
     running_mean: float
@@ -53,6 +56,7 @@ class MarketAnomaly(BaseModel):
 
 class MarketStats(BaseModel):
     """One sidecar *.stats.json written by sonification/pipeline.py."""
+
     symbol: str
     captured_at: datetime
     last_price: float | None

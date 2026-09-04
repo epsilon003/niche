@@ -1,4 +1,5 @@
 """Shared data model for Phase 1A -> Phase 2."""
+
 from __future__ import annotations
 
 from datetime import date, datetime, timezone
@@ -13,11 +14,11 @@ class CatalystSource(str, Enum):
 
 
 class CatalystKind(str, Enum):
-    TRIAL_STATUS_CHANGE = "trial_status_change"     # e.g. RECRUITING -> COMPLETED
-    RESULTS_POSTED = "results_posted"                 # CT.gov results section populated
+    TRIAL_STATUS_CHANGE = "trial_status_change"  # e.g. RECRUITING -> COMPLETED
+    RESULTS_POSTED = "results_posted"  # CT.gov results section populated
     PRIMARY_COMPLETION_DUE = "primary_completion_due"  # upcoming readout window
-    PDUFA_DATE = "pdufa_date"                         # FDA target action date
-    FDA_ACTION_LOGGED = "fda_action_logged"           # openFDA drugsfda action recorded
+    PDUFA_DATE = "pdufa_date"  # FDA target action date
+    FDA_ACTION_LOGGED = "fda_action_logged"  # openFDA drugsfda action recorded
 
 
 class CatalystEvent(BaseModel):

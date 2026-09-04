@@ -9,11 +9,14 @@ account equity, sized down to whole contracts (never rounds up), and
 rejects outright (0 contracts) if even a single contract would breach the
 cap — it never partially violates the gate to force a trade through.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-DEFAULT_MAX_LOSS_PCT = 2.0  # percent of account equity — per the diagram's "max loss 2% gate"
+DEFAULT_MAX_LOSS_PCT = (
+    2.0  # percent of account equity — per the diagram's "max loss 2% gate"
+)
 CONTRACTS_MULTIPLIER = 100  # standard equity option contract multiplier
 
 
@@ -35,7 +38,9 @@ def size_position(
     max_contracts_cap: int = 20,
 ) -> RiskGateResult:
     if net_debit_per_contract <= 0:
-        return RiskGateResult(False, 0, 0.0, equity, "net_debit_per_contract must be positive")
+        return RiskGateResult(
+            False, 0, 0.0, equity, "net_debit_per_contract must be positive"
+        )
     if equity <= 0:
         return RiskGateResult(False, 0, 0.0, equity, "non-positive account equity")
 
@@ -46,7 +51,10 @@ def size_position(
 
     if affordable < 1:
         return RiskGateResult(
-            False, 0, max_loss_budget, equity,
+            False,
+            0,
+            max_loss_budget,
+            equity,
             f"even 1 contract (${per_contract_risk:.2f} max loss) exceeds the "
             f"{max_loss_pct:.1f}% equity cap (${max_loss_budget:.2f} on ${equity:.2f} equity)",
         )
