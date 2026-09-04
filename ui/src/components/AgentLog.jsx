@@ -1,46 +1,65 @@
-const PHASE_STYLE = {
-  catalyst_watcher: { label: '1A · Catalyst', color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' },
-  scientific_agent: { label: '2 · Scientific', color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' },
-  cross_intelligence: { label: '5 · Cross-Intel', color: 'bg-amber-500/15 text-amber-400 border-amber-500/30' },
-  options_execution: { label: '6 · Execution', color: 'bg-sky-500/15 text-sky-400 border-sky-500/30' },
+const PHASE = {
+  catalyst_watcher: { label: 'Catalyst', dot: '#30d158' },
+  scientific_agent: { label: 'Scientific', dot: '#30d158' },
+  cross_intelligence: { label: 'Cross-intel', dot: '#ff9f0a' },
+  options_execution: { label: 'Execution', dot: '#0a84ff' },
 }
 
 function formatTime(iso) {
   try {
-    return new Date(iso).toLocaleTimeString()
+    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
   } catch {
     return iso
   }
 }
 
-export default function AgentLog({ events, title = 'Live agent log', emptyHint }) {
+export default function AgentLog({ events, title = 'Agent log', emptyHint }) {
   return (
-    <div className="flex h-full flex-col rounded-lg border border-edge bg-panel">
-      <div className="border-b border-edge px-3 py-2 text-xs font-medium text-slate-400">{title}</div>
-      <div className="flex-1 overflow-y-auto p-2">
+    <div className="flex h-full flex-col rounded-card border border-hairline bg-surface/60 backdrop-blur-material">
+      {title && (
+        <div className="border-b border-hairline px-5 py-4">
+          <h2 className="text-[13px] font-medium text-ink2">{title}</h2>
+        </div>
+      )}
+      <div className="flex-1 overflow-y-auto px-2 py-2">
         {events.length === 0 && (
-          <div className="p-4 text-center text-sm text-slate-500">
-            {emptyHint || 'No events yet — the pipeline hasn\u2019t produced any log entries.'}
-          </div>
+          <EmptyRow text={emptyHint || 'No events yet.'} />
         )}
-        <ul className="space-y-1.5">
+        <ul>
           {events.map((ev, i) => {
-            const style = PHASE_STYLE[ev.phase] || { label: ev.phase, color: 'bg-slate-500/15 text-slate-400 border-slate-500/30' }
+            const meta = PHASE[ev.phase] || { label: ev.phase, dot: '#8e8e93' }
             return (
-              <li key={`${ev.timestamp}-${i}`} className="rounded-md border border-edge/60 bg-black/20 px-2.5 py-2 text-sm">
-                <div className="flex items-center justify-between gap-2">
-                  <span className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${style.color}`}>
-                    {style.label}
-                  </span>
-                  <span className="text-[11px] text-slate-500">{formatTime(ev.timestamp)}</span>
+              <li
+                key={`${ev.timestamp}-${i}`}
+                className="group flex gap-3 rounded-[10px] px-3 py-2.5 transition-colors duration-150 hover:bg-white/[0.03]"
+              >
+                <span
+                  className="mt-1.5 h-1.5 w-1.5 flex-none rounded-full"
+                  style={{ backgroundColor: meta.dot }}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="truncate text-[13.5px] font-medium text-ink">{ev.title}</span>
+                    <span className="flex-none text-[11px] tabular-nums text-ink3">{formatTime(ev.timestamp)}</span>
+                  </div>
+                  {ev.detail && (
+                    <p className="mt-0.5 line-clamp-2 text-[12.5px] leading-snug text-ink2">{ev.detail}</p>
+                  )}
+                  <span className="mt-1 inline-block text-[11px] text-ink3">{meta.label}</span>
                 </div>
-                <div className="mt-1 font-medium text-slate-200">{ev.title}</div>
-                {ev.detail && <div className="mt-0.5 text-xs text-slate-400">{ev.detail}</div>}
               </li>
             )
           })}
         </ul>
       </div>
+    </div>
+  )
+}
+
+function EmptyRow({ text }) {
+  return (
+    <div className="flex h-32 items-center justify-center px-4 text-center text-[13px] text-ink3">
+      {text}
     </div>
   )
 }

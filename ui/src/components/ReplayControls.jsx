@@ -1,15 +1,22 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import AgentLog from './AgentLog'
+import { Panel } from './ui'
 
 function isoLocal(date) {
-  // datetime-local inputs want "YYYY-MM-DDTHH:mm" in local time, no timezone suffix
   const pad = (n) => String(n).padStart(2, '0')
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
 const SPEEDS = [1, 2, 5, 10]
-const BASE_STEP_MS = 1200 // time between revealed events at 1x
+const BASE_STEP_MS = 1200
+
+const inputClass =
+  'rounded-control border border-hairline bg-white/[0.04] px-2.5 py-1.5 text-[13px] text-ink outline-none focus:border-accent'
+const primaryBtn =
+  'rounded-control bg-accent px-3.5 py-1.5 text-[13px] font-medium text-white transition-opacity duration-150 hover:opacity-85'
+const secondaryBtn =
+  'rounded-control border border-hairline bg-white/[0.04] px-3.5 py-1.5 text-[13px] font-medium text-ink transition-colors duration-150 hover:bg-white/[0.08]'
 
 export default function ReplayControls() {
   const now = new Date()
@@ -54,82 +61,63 @@ export default function ReplayControls() {
     return () => clearInterval(timerRef.current)
   }, [playing, speed, allEvents.length])
 
-  const visible = [...allEvents.slice(0, cursor)].reverse() // newest-first, matching the live log
+  const visible = [...allEvents.slice(0, cursor)].reverse()
 
   return (
-    <div className="rounded-lg border border-edge bg-panel p-3">
-      <div className="mb-2 text-xs text-slate-400">Historical replay (Phase 7)</div>
-
-      <div className="flex flex-wrap items-end gap-3 text-xs">
-        <label className="flex flex-col gap-1">
-          <span className="text-slate-500">Start</span>
-          <input
-            type="datetime-local"
-            value={start}
-            onChange={(e) => setStart(e.target.value)}
-            className="rounded border border-edge bg-black/30 px-2 py-1 text-slate-200"
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-slate-500">End</span>
-          <input
-            type="datetime-local"
-            value={end}
-            onChange={(e) => setEnd(e.target.value)}
-            className="rounded border border-edge bg-black/30 px-2 py-1 text-slate-200"
-          />
-        </label>
-        <button
-          onClick={loadWindow}
-          className="rounded border border-sky-500/40 bg-sky-500/15 px-3 py-1.5 text-sky-300 hover:bg-sky-500/25"
-        >
+    <Panel title="Historical replay">
+      <div className="flex flex-wrap items-end gap-4">
+        <Field label="Start">
+          <input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} className={inputClass} />
+        </Field>
+        <Field label="End">
+          <input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)} className={inputClass} />
+        </Field>
+        <button onClick={loadWindow} className={primaryBtn}>
           Load window
         </button>
 
         {allEvents.length > 0 && (
           <>
-            <button
-              onClick={() => setPlaying((p) => !p)}
-              className="rounded border border-edge bg-black/30 px-3 py-1.5 text-slate-200 hover:bg-black/50"
-            >
+            <button onClick={() => setPlaying((p) => !p)} className={secondaryBtn}>
               {playing ? 'Pause' : cursor >= allEvents.length ? 'Replay' : 'Play'}
             </button>
-            <button
-              onClick={() => { setCursor(0); setPlaying(false) }}
-              className="rounded border border-edge bg-black/30 px-3 py-1.5 text-slate-200 hover:bg-black/50"
-            >
+            <button onClick={() => { setCursor(0); setPlaying(false) }} className={secondaryBtn}>
               Reset
             </button>
-            <label className="flex flex-col gap-1">
-              <span className="text-slate-500">Speed</span>
-              <select
-                value={speed}
-                onChange={(e) => setSpeed(Number(e.target.value))}
-                className="rounded border border-edge bg-black/30 px-2 py-1 text-slate-200"
-              >
+            <Field label="Speed">
+              <select value={speed} onChange={(e) => setSpeed(Number(e.target.value))} className={inputClass}>
                 {SPEEDS.map((s) => (
-                  <option key={s} value={s}>{s}x</option>
+                  <option key={s} value={s}>{s}×</option>
                 ))}
               </select>
-            </label>
-            <span className="text-slate-500">
-              {cursor} / {allEvents.length} events
+            </Field>
+            <span className="pb-1.5 text-[12px] tabular-nums text-ink3">
+              {cursor} / {allEvents.length}
             </span>
           </>
         )}
       </div>
 
-      {loadError && <div className="mt-2 text-xs text-rose-400">{loadError}</div>}
+      {loadError && <p className="mt-3 text-[13px] text-negative">{loadError}</p>}
 
       {allEvents.length === 0 && !loadError && (
-        <div className="mt-2 text-xs text-slate-500">Pick a window and load it to replay what the pipeline logged.</div>
+        <p className="mt-3 text-[13px] text-ink3">Pick a window and load it to replay what the pipeline logged.</p>
       )}
 
       {allEvents.length > 0 && (
-        <div className="mt-3 h-72">
+        <div className="mt-4 h-80">
           <AgentLog events={visible} title="" emptyHint="Press Play to start replaying." />
         </div>
       )}
-    </div>
+    </Panel>
+  )
+}
+
+function Field({ label, children }) {
+  return (
+    <label className="flex flex-col gap-1.5">
+      <span className="text-[11px] text-ink3">{label}</span>
+      {children}
+    </label>
   )
 }

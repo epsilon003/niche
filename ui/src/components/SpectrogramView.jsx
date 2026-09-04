@@ -1,14 +1,15 @@
 import { useEffect, useRef } from 'react'
+import { Panel, EmptyState } from './ui'
 
-// Small hand-rolled "inferno-ish" colormap — avoids pulling in a whole
-// colormap library for one gradient. Stops chosen to read clearly on a
-// dark panel: near-black at 0, through purple/orange, to pale yellow at 1.
+// A muted blue-through-white ramp reads calmer and more instrument-like than
+// a hot inferno palette — closer to what a real spectral analyzer shows,
+// and it sits quietly against the dark surface instead of competing with it.
 const STOPS = [
-  [0, [10, 10, 20]],
-  [0.25, [63, 22, 84]],
-  [0.5, [158, 47, 84]],
-  [0.75, [230, 121, 46]],
-  [1, [252, 232, 130]],
+  [0, [10, 14, 26]],
+  [0.35, [16, 60, 120]],
+  [0.65, [10, 132, 255]],
+  [0.85, [100, 210, 255]],
+  [1, [245, 245, 247]],
 ]
 
 function colorFor(value) {
@@ -43,7 +44,6 @@ export default function SpectrogramView({ spectrogram, symbol }) {
 
     ctx.clearRect(0, 0, width, height)
     for (let row = 0; row < nMels; row++) {
-      // row 0 = lowest mel bin; flip vertically so low frequencies sit at the bottom
       const y = height - (row + 1) * cellH
       for (let col = 0; col < nFrames; col++) {
         ctx.fillStyle = colorFor(data[row][col])
@@ -52,21 +52,16 @@ export default function SpectrogramView({ spectrogram, symbol }) {
     }
   }, [spectrogram])
 
-  if (!spectrogram) {
-    return (
-      <div className="flex h-48 items-center justify-center rounded-lg border border-edge bg-panel text-sm text-slate-500">
-        No spectrogram yet for {symbol} — run the sonification pipeline against a live stream.
-      </div>
-    )
-  }
-
   return (
-    <div className="rounded-lg border border-edge bg-panel p-3">
-      <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
-        <span>{symbol} — last 60s tick sonification</span>
-        <span>{spectrogram.n_mels} mel bins</span>
-      </div>
-      <canvas ref={canvasRef} width={800} height={220} className="w-full rounded" />
-    </div>
+    <Panel
+      title="Sonification"
+      meta={spectrogram ? `${spectrogram.n_mels} mel bins · last 60s` : null}
+    >
+      {!spectrogram ? (
+        <EmptyState label={`No spectrogram yet for ${symbol}`} hint="Run the sonification pipeline against a live stream." />
+      ) : (
+        <canvas ref={canvasRef} width={800} height={200} className="w-full rounded-[10px]" />
+      )}
+    </Panel>
   )
 }

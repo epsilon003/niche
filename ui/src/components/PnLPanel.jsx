@@ -1,65 +1,80 @@
 import { usePolling } from '../hooks/usePolling'
 import { api } from '../api'
+import { Panel } from './ui'
 
 function fmt(n) {
   if (n === null || n === undefined) return '—'
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
 }
 
+function fmtDelta(n) {
+  if (n === null || n === undefined) return '—'
+  const sign = n > 0 ? '+' : ''
+  return `${sign}${fmt(n)}`
+}
+
 export default function PnLPanel() {
   const { data: account } = usePolling(api.account, 10000)
   const { data: positions } = usePolling(api.positions, 10000)
 
-  const dayPl = account && account.connected ? account.equity - account.last_equity : null
+  const dayPl = account?.connected ? account.equity - account.last_equity : null
+  const dayPlTone = dayPl > 0 ? 'text-positive' : dayPl < 0 ? 'text-negative' : 'text-ink2'
 
   return (
-    <div className="rounded-lg border border-edge bg-panel p-3">
-      <div className="mb-2 text-xs text-slate-400">Alpaca paper account (Phase 6)</div>
-
+    <Panel title="Paper account">
       {!account?.connected && (
-        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-400">
-          Not connected{account?.error ? ` — ${account.error}` : ''}. Check ALPACA_API_KEY / ALPACA_SECRET_KEY.
+        <div className="rounded-[10px] border border-hairline bg-surface2/50 px-4 py-3 text-[13px] text-ink2">
+          {account?.error || 'Not connected to Alpaca.'}
         </div>
       )}
 
       {account?.connected && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Stat label="Equity" value={fmt(account.equity)} />
-          <Stat label="Buying power" value={fmt(account.buying_power)} />
-          <Stat label="Cash" value={fmt(account.cash)} />
-          <Stat
-            label="Day P&L"
-            value={fmt(dayPl)}
-            tone={dayPl > 0 ? 'text-emerald-400' : dayPl < 0 ? 'text-rose-400' : undefined}
-          />
+        <div className="flex flex-wrap items-end justify-between gap-6">
+          <div>
+            <div className="text-[12px] text-ink3">Equity</div>
+            <div className="mt-0.5 text-[32px] font-semibold tabular-nums tracking-[-0.02em] text-ink">
+              {fmt(account.equity)}
+            </div>
+            <div className={`mt-0.5 text-[13px] font-medium tabular-nums ${dayPlTone}`}>
+              {fmtDelta(dayPl)} today
+            </div>
+          </div>
+          <div className="flex gap-6">
+            <Stat label="Buying power" value={fmt(account.buying_power)} />
+            <Stat label="Cash" value={fmt(account.cash)} />
+          </div>
         </div>
       )}
 
-      <div className="mt-3 border-t border-edge pt-2">
-        <div className="mb-1.5 text-xs text-slate-400">Open positions</div>
+      <div className="mt-5 border-t border-hairline pt-4">
+        <div className="mb-2 text-[12px] text-ink3">Open positions</div>
         {(!positions?.positions || positions.positions.length === 0) && (
-          <div className="text-xs text-slate-500">No open positions.</div>
+          <p className="text-[13px] text-ink3">No open positions.</p>
         )}
         {positions?.positions?.length > 0 && (
-          <table className="w-full text-xs">
-            <thead className="text-slate-500">
-              <tr className="text-left">
-                <th className="py-1 font-normal">Symbol</th>
-                <th className="py-1 font-normal">Qty</th>
-                <th className="py-1 font-normal">Avg entry</th>
-                <th className="py-1 font-normal">Current</th>
-                <th className="py-1 font-normal text-right">Unrealized P&L</th>
+          <table className="w-full border-collapse text-[13px]">
+            <thead>
+              <tr className="text-left text-[11px] text-ink3">
+                <th className="pb-2 font-normal">Symbol</th>
+                <th className="pb-2 font-normal">Qty</th>
+                <th className="pb-2 font-normal">Avg entry</th>
+                <th className="pb-2 font-normal">Current</th>
+                <th className="pb-2 text-right font-normal">Unrealized P&amp;L</th>
               </tr>
             </thead>
             <tbody>
               {positions.positions.map((p) => (
-                <tr key={p.symbol} className="border-t border-edge/60">
-                  <td className="py-1 text-slate-200">{p.symbol}</td>
-                  <td className="py-1">{p.qty}</td>
-                  <td className="py-1">{fmt(p.avg_entry_price)}</td>
-                  <td className="py-1">{fmt(p.current_price)}</td>
-                  <td className={`py-1 text-right ${p.unrealized_pl > 0 ? 'text-emerald-400' : p.unrealized_pl < 0 ? 'text-rose-400' : ''}`}>
-                    {fmt(p.unrealized_pl)}
+                <tr key={p.symbol} className="border-t border-hairline">
+                  <td className="py-2 font-medium text-ink">{p.symbol}</td>
+                  <td className="py-2 tabular-nums text-ink2">{p.qty}</td>
+                  <td className="py-2 tabular-nums text-ink2">{fmt(p.avg_entry_price)}</td>
+                  <td className="py-2 tabular-nums text-ink2">{fmt(p.current_price)}</td>
+                  <td
+                    className={`py-2 text-right tabular-nums ${
+                      p.unrealized_pl > 0 ? 'text-positive' : p.unrealized_pl < 0 ? 'text-negative' : 'text-ink2'
+                    }`}
+                  >
+                    {fmtDelta(p.unrealized_pl)}
                   </td>
                 </tr>
               ))}
@@ -67,15 +82,15 @@ export default function PnLPanel() {
           </table>
         )}
       </div>
-    </div>
+    </Panel>
   )
 }
 
-function Stat({ label, value, tone }) {
+function Stat({ label, value }) {
   return (
     <div>
-      <div className="text-[11px] text-slate-500">{label}</div>
-      <div className={`text-sm font-medium ${tone || 'text-slate-200'}`}>{value}</div>
+      <div className="text-[12px] text-ink3">{label}</div>
+      <div className="mt-0.5 text-[15px] font-medium tabular-nums text-ink">{value}</div>
     </div>
   )
 }

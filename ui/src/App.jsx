@@ -7,6 +7,7 @@ import AnomalyChart from './components/AnomalyChart'
 import AgentLog from './components/AgentLog'
 import PnLPanel from './components/PnLPanel'
 import ReplayControls from './components/ReplayControls'
+import SegmentedControl from './components/SegmentedControl'
 
 const TABS = ['Live', 'Replay']
 
@@ -34,48 +35,44 @@ export default function App() {
   const { events: liveEvents } = useLiveAgentLog(4000)
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-7xl flex-col gap-4 p-4">
-      <Header tab={tab} setTab={setTab} />
+    <div className="min-h-screen bg-base">
+      <div className="mx-auto max-w-7xl px-6 py-8">
+        <Header tab={tab} setTab={setTab} />
 
-      {tab === 'Live' && (
-        <div className="grid flex-1 grid-cols-1 gap-4 lg:grid-cols-3">
-          <div className="flex flex-col gap-4 lg:col-span-2">
-            <SymbolPicker symbols={symbols} active={activeSymbol} onSelect={setSymbol} />
-            <SpectrogramView spectrogram={spectrogram} symbol={activeSymbol || '—'} />
-            <AnomalyChart scores={anomalyData?.scores} symbol={activeSymbol || '—'} />
-            <PnLPanel />
+        {tab === 'Live' && (
+          <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
+            <div className="flex flex-col gap-6">
+              <SymbolPicker symbols={symbols} active={activeSymbol} onSelect={setSymbol} />
+              <SpectrogramView spectrogram={spectrogram} symbol={activeSymbol || '—'} />
+              <AnomalyChart scores={anomalyData?.scores} symbol={activeSymbol || '—'} />
+              <PnLPanel />
+            </div>
+            <div className="lg:sticky lg:top-8 lg:h-[calc(100vh-8rem)]">
+              <AgentLog events={liveEvents} title="Agent log" />
+            </div>
           </div>
-          <div className="h-[70vh] lg:h-auto">
-            <AgentLog events={liveEvents} title="Live agent log — all phases" />
-          </div>
-        </div>
-      )}
+        )}
 
-      {tab === 'Replay' && <ReplayControls />}
+        {tab === 'Replay' && (
+          <div className="mt-8">
+            <ReplayControls />
+          </div>
+        )}
+      </div>
     </div>
   )
 }
 
 function Header({ tab, setTab }) {
   return (
-    <header className="flex items-center justify-between border-b border-edge pb-3">
+    <header className="flex flex-col gap-6 border-b border-hairline pb-6 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <h1 className="text-lg font-semibold text-slate-100">biosignal-trader</h1>
-        <p className="text-xs text-slate-500">Phase 7 — live spectrogram · agent log · Alpaca P&amp;L · historical replay</p>
+        <h1 className="text-[28px] font-semibold tracking-[-0.02em] text-ink">biosignal-trader</h1>
+        <p className="mt-1 text-[15px] text-ink2">
+          Live spectrogram, agent reasoning, and paper P&amp;L in one place.
+        </p>
       </div>
-      <nav className="flex gap-1 rounded-lg border border-edge bg-panel p-1">
-        {TABS.map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`rounded-md px-3 py-1.5 text-sm transition ${
-              tab === t ? 'bg-sky-500/20 text-sky-300' : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            {t}
-          </button>
-        ))}
-      </nav>
+      <SegmentedControl options={TABS} value={tab} onChange={setTab} />
     </header>
   )
 }
@@ -83,26 +80,29 @@ function Header({ tab, setTab }) {
 function SymbolPicker({ symbols, active, onSelect }) {
   if (symbols.length === 0) {
     return (
-      <div className="rounded-lg border border-edge bg-panel px-3 py-2 text-xs text-slate-500">
-        No symbols found yet — set WATCHLIST in .env and run the pipeline.
+      <div className="rounded-card border border-hairline bg-surface px-4 py-3 text-[13px] text-ink3">
+        No symbols yet — set WATCHLIST in .env and run the pipeline.
       </div>
     )
   }
   return (
-    <div className="flex flex-wrap gap-1.5">
-      {symbols.map((s) => (
-        <button
-          key={s}
-          onClick={() => onSelect(s)}
-          className={`rounded-md border px-3 py-1 text-sm transition ${
-            s === active
-              ? 'border-sky-500/40 bg-sky-500/20 text-sky-300'
-              : 'border-edge bg-panel text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          {s}
-        </button>
-      ))}
+    <div className="flex flex-wrap gap-2">
+      {symbols.map((s) => {
+        const isActive = s === active
+        return (
+          <button
+            key={s}
+            onClick={() => onSelect(s)}
+            className={`rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-colors duration-150 ${
+              isActive
+                ? 'bg-accent text-white'
+                : 'border border-hairline bg-surface text-ink2 hover:text-ink'
+            }`}
+          >
+            {s}
+          </button>
+        )
+      })}
     </div>
   )
 }
