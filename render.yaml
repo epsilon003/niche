@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: biosignal-api
+    env: docker
+    dockerfilePath: ./Dockerfile.render
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: DATA_DIR
+        value: /app/data
+      - key: ALPACA_API_KEY
+        sync: false  # You'll set this in dashboard
+      - key: ALPACA_SECRET_KEY
+        sync: false
+      - key: ALPACA_PAPER
+        value: "true"
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: WATCHLIST
+        value: "MRNA,NVAX,BNTX"
+      - key: LOG_LEVEL
+        value: "INFO"
