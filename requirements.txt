@@ -25,5 +25,12 @@ torch>=2.3.0
 torchaudio>=2.3.0
 scikit-learn>=1.5.0
 
+# --- Phase 6: options execution ---
+# (uses the same httpx/tenacity/pydantic already listed above)
+
+# --- Phase 7: UI backend ---
+fastapi>=0.111.0
+uvicorn[standard]>=0.30.0
+
 # --- shared ---
 rich>=13.7.1

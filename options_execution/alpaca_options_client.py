@@ -97,6 +97,23 @@ def fetch_chain(underlying: str, option_type: OptionType) -> list[OptionContract
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
+def list_positions() -> list[dict]:
+    """All open positions (equities + options) on the account — used by Phase 7's P&L view."""
+    resp = httpx.get(f"{TRADING_BASE}/v2/positions", headers=_headers(), timeout=10.0)
+    resp.raise_for_status()
+    return resp.json()
+
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
+def list_orders(status: str = "all", limit: int = 50) -> list[dict]:
+    """Recent orders — used by Phase 7's P&L/activity view."""
+    params = {"status": status, "limit": limit, "direction": "desc"}
+    resp = httpx.get(f"{TRADING_BASE}/v2/orders", headers=_headers(), params=params, timeout=10.0)
+    resp.raise_for_status()
+    return resp.json()
+
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
 def place_multi_leg_order(legs: list[dict], qty: int, limit_price: float, time_in_force: str = "day") -> dict:
     """
     legs: [{"symbol": occ_symbol, "side": "buy"|"sell", "ratio_qty": 1,

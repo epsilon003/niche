@@ -1,9 +1,9 @@
-# biosignal-trader — Phases 0–6
+# biosignal-trader — Phases 0–7
 
-Implements setup, both tracks (scientific: catalyst watcher → scientific
-agent; market: tick engine → sonification → neural perception), the
-cross-intelligence rule engine where they merge, and options execution.
-Phase 7 (UI + demo) is not built yet.
+The full pipeline from the diagram: setup, both tracks (scientific:
+catalyst watcher → scientific agent; market: tick engine → sonification →
+neural perception), the cross-intelligence rule engine where they merge,
+options execution, and a live UI.
 
 ```
 Phase 0 — Setup
@@ -15,6 +15,7 @@ Phase 0 — Setup
                                     \
                                      Phase 5 — Cross-intelligence agent (rule engine, no LLM)
                                      └── Phase 6 — Options strategy + execution
+                                         └── Phase 7 — UI + demo (FastAPI + React)
 ```
 
 ## 0. Setup
@@ -210,6 +211,77 @@ paper account before trusting it live.
 
 Phase 7 (UI + demo) reads these logs for a live agent log, Alpaca P&L, and
 a historical replay mode.
+
+## 7 — UI + demo
+
+A FastAPI backend (`ui_backend/`) reads straight from the same
+`data/*.jsonl` files every earlier phase already writes — no database —
+plus a thin live proxy to Alpaca for P&L. A Vite + React + Tailwind
+frontend (`ui/`) polls it for a live view, with a separate historical
+replay mode.
+
+```bash
+# backend, from the repo root
+pip install -r requirements.txt
+uvicorn ui_backend.app:app --reload --port 8000
+
+# frontend, in a second terminal
+cd ui
+npm install
+npm run dev   # http://localhost:5173
+```
+
+**Backend (`ui_backend/`)**
+- `data_access.py` — the one place that knows the jsonl file layouts;
+  merges catalyst events, scientific classifications, cross-intel
+  decisions, and trade-log entries into one chronological event feed, and
+  block-mean-pools spectrograms (64 × ~5000 frames → 64 × 200) so they're
+  small enough to poll every few seconds without the payload dominating.
+- `routers/agent_log.py` — `/api/agent-log?since=` (live polling, only
+  returns what's new) and `/api/replay?start=&end=` (a fixed historical
+  window for replay).
+- `routers/market.py` — `/api/market/symbols`,
+  `/api/market/spectrogram/latest`, `/api/market/anomaly-scores`.
+- `routers/trades.py` — `/api/trades` (local, always available) plus
+  `/api/account` and `/api/positions`, which proxy live to Alpaca and
+  **fail soft**: no Alpaca connection returns `{"connected": false,
+  "error": ...}` with a 200, not a crash, so the UI shows a clear
+  "not connected" state instead of breaking.
+
+**Frontend (`ui/src/`)**
+- `SpectrogramView.jsx` — canvas-rendered mel-spectrogram heatmap, no
+  chart library needed for this one.
+- `AnomalyChart.jsx` — recharts line chart of the Phase 4 z-score, with
+  reference lines at the same ±2.5 threshold `cross_intelligence/rules.py`
+  actually gates on.
+- `AgentLog.jsx` + `hooks/useLiveAgentLog.js` — phase-colored chronological
+  feed, accumulates across polls via `since=`.
+- `PnLPanel.jsx` — Alpaca equity/buying-power/day-P&L and an open-positions
+  table.
+- `ReplayControls.jsx` — pick a start/end window, load it, then play it
+  back through the same `AgentLog` component at 1×–10× speed.
+
+Tested for real, not just written: the backend was smoke-tested with
+synthetic fixture files across all four log sources plus a fake
+spectrogram — every endpoint (`/api/agent-log`, `/api/replay` with its
+`since`/window-boundary filtering, `/api/market/symbols`,
+`/api/market/spectrogram/latest` including its downsampling and its 404
+for an unknown symbol, `/api/market/anomaly-scores`, `/api/trades`,
+`/api/account`'s fail-soft path) was hit via FastAPI's TestClient and
+returned exactly the expected shape and filtering. It was then run for
+real with `uvicorn` (not just TestClient) and hit with plain `curl` —
+including confirming the CORS header Vite's dev server needs is actually
+present on a live response. Separately, `/api/account`'s real network
+call reached `paper-api.alpaca.markets` and got a genuine 403 for dummy
+credentials, which incidentally confirms the request URL/headers are
+correctly formed. The frontend was `npm install`ed and `npm run build`ed
+clean (837 modules, zero errors) — not just visually reviewed.
+
+What wasn't (and couldn't be) tested here: an actual browser rendering
+the pages against live pipeline data — this sandbox has no browser. Run
+both servers per the commands above and open `http://localhost:5173` to
+see it live; if anything looks off visually, that's the one layer that
+wasn't verified end-to-end.
 
 ## Honesty notes / known limitations
 

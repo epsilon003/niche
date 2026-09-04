@@ -1,7 +1,7 @@
 """Shared data model for Phase 1A -> Phase 2."""
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from enum import Enum
 
 from pydantic import BaseModel, Field
@@ -29,7 +29,7 @@ class CatalystEvent(BaseModel):
     detail: str = ""
     url: str = ""
     external_id: str = Field(..., description="NCT id, application number, etc.")
-    fetched_at: datetime = Field(default_factory=datetime.utcnow)
+    fetched_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     raw: dict = Field(default_factory=dict, repr=False)
 
     @property
