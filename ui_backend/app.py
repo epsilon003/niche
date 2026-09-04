@@ -14,29 +14,31 @@ or:
 
 from __future__ import annotations
 
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from config import get_logger
-
-from .routers import agent_log, market, trades
-
-log = get_logger("ui_backend.app")
-
 app = FastAPI(title="biosignal-trader UI backend", version="0.7.0")
 
-# Vite's default dev server port. Add your deployed frontend origin here too
-# if you build/serve this somewhere other than localhost.
+# Allow Vercel preview + production URLs
+allowed_origins = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    os.getenv("VERCEL_URL", "").replace("^", "https://").replace(".vercel.app", ".vercel.app"),
+    # Add your actual Vercel URL:
+    "https://niche-xyz.vercel.app",  # REPLACE THIS
+]
+
+# Filter out empty strings
+allowed_origins = [o for o in allowed_origins if o]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=allowed_origins,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-app.include_router(agent_log.router)
-app.include_router(market.router)
-app.include_router(trades.router)
 
 
 @app.get("/api/health")

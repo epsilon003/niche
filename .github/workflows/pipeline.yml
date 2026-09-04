@@ -1,0 +1,61 @@
+name: Trading Pipeline
+
+on:
+  schedule:
+    # Run every 15 minutes during market hours (9:30 AM - 4:00 PM ET, Mon-Fri)
+    # GitHub cron is UTC, so 14:00-20:00 UTC
+    - cron: '*/15 14-20 * * 1-5'
+  workflow_dispatch:  # Manual trigger button
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+      
+      - name: Run Catalyst Watcher
+        env:
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+          ALPACA_PAPER: 'true'
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          WATCHLIST: 'MRNA,NVAX,BNTX'
+          DATA_DIR: '/tmp/biosignal_data'
+        run: python -m catalyst_watcher.watcher --once
+      
+      - name: Run Scientific Agent
+        env:
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+          ALPACA_PAPER: 'true'
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          DATA_DIR: '/tmp/biosignal_data'
+        run: python -m scientific_agent.agent --once
+      
+      - name: Run Cross-Intelligence Engine
+        env:
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+          ALPACA_PAPER: 'true'
+          DATA_DIR: '/tmp/biosignal_data'
+        run: python -m cross_intelligence.engine --once
+      
+      - name: Run Options Execution
+        env:
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+          ALPACA_PAPER: 'true'
+          DATA_DIR: '/tmp/biosignal_data'
+        run: python -m options_execution.execution --once
